@@ -16,13 +16,19 @@ app.use(express.json());
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ================================
+// ✅ Root test
+// ================================
+app.get("/", (req, res) => {
+  res.send("🚀 CalmaAI Backend activo");
+});
+
+// ================================
 // ✅ Endpoint test
 // ================================
-
 app.get("/api/analyze", (req, res) => {
   res.json({
     ok: true,
-    message: "Backend activo. Usá POST con JSON {text:...}"
+    message: "Backend activo. Usá POST con JSON {text:...}",
   });
 });
 
@@ -35,50 +41,71 @@ app.post("/api/analyze", async (req, res) => {
 
     if (!userText) {
       return res.status(400).json({
-        error: "Falta el texto"
+        error: "Falta el texto",
       });
     }
 
     console.log("📩 Texto recibido:", userText);
 
-    // Modelo recomendado (Flash rápido y barato)
+    // Modelo recomendado
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
+      model: "gemini-1.5-flash",
     });
 
-    // Prompt psicológico argentino
+    // Prompt emocional argentino
     const prompt = `
 Sos un asistente emocional argentino llamado CalmaAI.
 Analizás si el texto indica estrés o enojo.
 
 Texto: "${userText}"
 
-Respondé SOLO en JSON válido así:
+Respondé SOLO en JSON válido:
 
 {
   "stressLevel": "NONE | LOW | MEDIUM | HIGH",
-  "response": "frase corta como psicólogo argentino para calmar"
+  "response": "frase corta como mediador argentino para calmar"
 }
 
-No agregues nada fuera del JSON.
+NO agregues texto extra.
 `;
 
     const result = await model.generateContent(prompt);
 
-    const raw = result.response.text();
+    let raw = result.response.text();
     console.log("🤖 Gemini raw:", raw);
 
-    // Convertir texto a JSON
-    const json = JSON.parse(raw);
+    // ================================
+    // ✅ LIMPIEZA anti Markdown
+    // ================================
+    raw = raw
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-    res.json(json);
+    // ================================
+    // ✅ Parse seguro
+    // ================================
+    let json;
+
+    try {
+      json = JSON.parse(raw);
+    } catch (parseErr) {
+      console.log("⚠️ Gemini devolvió algo no parseable");
+
+      json = {
+        stressLevel: "NONE",
+        response: "",
+      };
+    }
+
+    return res.json(json);
 
   } catch (err) {
-    console.error("❌ Error:", err.message);
+    console.error("❌ Error Gemini:", err.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Error en Gemini backend",
-      details: err.message
+      details: err.message,
     });
   }
 });
@@ -91,4 +118,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🚀 Backend corriendo en puerto", PORT);
 });
+
 
